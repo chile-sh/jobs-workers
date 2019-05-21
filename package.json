@@ -1,0 +1,51 @@
+{
+  "name": "jobs-workers",
+  "version": "1.0.1",
+  "main": "build/server.js",
+  "license": "GPL-3.0",
+  "scripts": {
+    "ts-node": "node -r tsconfig-paths/register -r ts-node/register -r dotenv/config",
+    "dev": "yarn ts-node --inspect=5858 src/server.ts",
+    "build": "rm -rvf build && tsc",
+    "serve": "node build/server.js",
+    "test": "yarn lint",
+    "test:watch": "jest --watch",
+    "lint": "eslint 'src/**/*.@(ts|js|tsx|jsx)'",
+    "lint:fix": "yarn lint --fix"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "yalc check",
+      "pre-push": "yarn test"
+    }
+  },
+  "devDependencies": {
+    "@chile-sh/eslint-config-ts": "^2.2.1",
+    "@types/dotenv": "^6.1.1",
+    "@types/ioredis": "^4.0.10",
+    "@types/jest": "^24.0.12",
+    "@types/lodash": "^4.14.123",
+    "@types/node": "^12.0.0",
+    "@typescript-eslint/eslint-plugin": "^1.7.0",
+    "@typescript-eslint/parser": "^1.7.0",
+    "eslint": "^5.16.0",
+    "eslint-config-prettier": "^4.2.0",
+    "eslint-plugin-prettier": "^3.0.1",
+    "husky": "^2.3.0",
+    "jest": "^24.8.0",
+    "prettier": "^1.17.0",
+    "ts-jest": "^24.0.2",
+    "ts-node": "^8.1.0",
+    "tsconfig-paths": "^3.8.0",
+    "typescript": "^3.4.5",
+    "yalc": "^1.0.0-pre.27"
+  },
+  "dependencies": {
+    "@chile-sh/getonbrd-scraper": "^3.0.2",
+    "@chile-sh/jobs-common": "^1.2.0",
+    "cron": "^1.7.1",
+    "date-fns": "^1.30.1",
+    "dotenv": "^7.0.0",
+    "lodash": "^4.17.11"
+  }
+}

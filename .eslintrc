@@ -1,0 +1,3 @@
+{
+  "extends": "@chile-sh/eslint-config-ts"
+}
