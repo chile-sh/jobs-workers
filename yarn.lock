@@ -139,10 +139,10 @@
     lodash "^4.17.11"
     to-fast-properties "^2.0.0"
 
-"@chile-sh/eslint-config-ts@^2.2.1":
-  version "2.2.1"
-  resolved "https://registry.yarnpkg.com/@chile-sh/eslint-config-ts/-/eslint-config-ts-2.2.1.tgz#46cfef48bb2dbc77822bde3c6dbbbefc14b84ef9"
-  integrity sha512-qv/EdYpDX9CMCxUNjT+PvnqF19f+y+Fwwk0lqN84oRvJuMcu53QyOZ5ZM+e2VDnNXMzhyJ9o3cpwDmESgrgNwg==
+"@chile-sh/eslint-config-ts@^2.2.2":
+  version "2.2.2"
+  resolved "https://registry.yarnpkg.com/@chile-sh/eslint-config-ts/-/eslint-config-ts-2.2.2.tgz#a6953b7ef6a8761eb49b211b73e736cd47749c3a"
+  integrity sha512-hpd0REsn7LGNQtjTb8TtZV5kEDMoirf0sCWJg6QsKq+kXf+MqhRlb17G6L9P47tyCnqKx86yI/idhbbwdL7jKA==
 
 "@chile-sh/getonbrd-scraper@^3.0.2":
   version "3.0.2"
