@@ -2,20 +2,20 @@ import GetOnBrd from '@chile-sh/getonbrd-scraper'
 import _ from 'lodash'
 
 import { sendToQueue } from '@common/lib/amqplib'
-import { defaultClient as redis } from '@common/lib/redis'
 
 import config from '@/config'
 
 import {
   QUEUE_GET_SALARIES,
   QUEUE_GET_JOBS,
-  CACHE_SALARIES_MAP_KEY,
   CACHE_JOBS_QUEUED_KEY,
   CACHE_SESSION_KEY,
   CACHE_SALARY_RANGE_KEY
 } from '../constants'
 
-const minMax = (arr: number[]) => [_.min(arr), _.max(arr)]
+import { redisClients } from '../helpers'
+
+const { db0: redis } = redisClients
 
 const gob = (async () => {
   let session = await redis.get(CACHE_SESSION_KEY)
@@ -47,19 +47,11 @@ export default async (msg: any, ch: any) => {
 
   await Promise.all(
     urls.map(async (url: string) => {
-      const prev = await redis.hgetJson(CACHE_SALARIES_MAP_KEY, url)
-
-      // get-jobs queue
       const queued = await redis.sismember(CACHE_JOBS_QUEUED_KEY, url)
-      if (!queued) sendToQueue(ch)(QUEUE_GET_JOBS, url)
+      if (!queued) await sendToQueue(ch)(QUEUE_GET_JOBS, url)
 
       await redis.sadd(CACHE_JOBS_QUEUED_KEY, urls)
-
-      return redis.hsetJson(
-        CACHE_SALARIES_MAP_KEY,
-        url,
-        prev ? minMax([...prev, ...range]) : range
-      )
+      await redisClients.db1.sadd(url, range)
     })
   )
 
