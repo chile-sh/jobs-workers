@@ -1,11 +1,14 @@
-export const SOURCE_NAME = 'getonbrd'
+import { SOURCES } from '@common/constants'
+
+export const SOURCE_NAME = SOURCES.getonbrd.slug
+export const SOURCE_ID = SOURCES.getonbrd.id
+
 export const SALARY_STEP = 50
-export const SALARY_RANGE = [400, 10000]
+export const SALARY_RANGE = [0, 20000]
 
 export const CACHE_CONFIG_KEY = `${SOURCE_NAME}.config`
 export const CACHE_CSFR_KEY = `${SOURCE_NAME}.csfr`
 export const CACHE_SESSION_KEY = `${SOURCE_NAME}.session`
-export const CACHE_SALARIES_MAP_KEY = `${SOURCE_NAME}.salariesMap`
 export const CACHE_COMPANIES_KEY = `${SOURCE_NAME}.companies`
 export const CACHE_JOBS_MAP_KEY = `${SOURCE_NAME}.jobs`
 export const CACHE_JOBS_QUEUED_KEY = `${SOURCE_NAME}.jobs.queued`
