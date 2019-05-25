@@ -1,3 +1,4 @@
+import { defaultClient as redis, createClient } from '@common/lib/redis'
 import { logError } from '@common/lib/logger'
 
 export const onError = (ch: any, msg: any, err: any, key: string) => {
@@ -14,4 +15,9 @@ export const onError = (ch: any, msg: any, err: any, key: string) => {
   if (msg) ch.reject(msg, false)
 
   logError(err, key)
+}
+
+export const redisClients = {
+  db0: redis,
+  db1: createClient({ db: 1 })
 }
