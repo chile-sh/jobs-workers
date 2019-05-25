@@ -1,16 +1,9 @@
 import _ from 'lodash'
 import { DeepPartialGraphModel } from 'objection'
 
-import { first } from '@common/lib/db'
-import { defaultClient as redis } from '@common/lib/redis'
+import db, { first } from '@common/lib/db'
 import { logger } from '@common/lib/logger'
-
-import {
-  CACHE_SALARIES_MAP_KEY,
-  CACHE_COMPANIES_KEY,
-  CACHE_JOBS_MAP_KEY,
-  SOURCE_NAME
-} from '../constants'
+import { SCHEMA } from '@common/constants'
 
 import Job from '@common/models/Job'
 import Country from '@common/models/Country'
@@ -18,18 +11,46 @@ import City from '@common/models/City'
 import Company from '@common/models/Company'
 import Category from '@common/models/Category'
 import Tag from '@common/models/Tag'
+import Source from '@chile-sh/jobs-common/build/models/Source'
 
-const TASK_NAME = `${SOURCE_NAME}.insert-data`
+import {
+  CACHE_COMPANIES_KEY,
+  CACHE_JOBS_MAP_KEY,
+  SOURCE_NAME,
+  SOURCE_ID,
+  SALARY_STEP
+} from '../constants'
+
+import { redisClients } from '../helpers'
+
+const { db0: redis } = redisClients
+
+export const TASK_NAME = `${SOURCE_NAME}.insert-data`
 
 const getSlug = (url: string) => {
   const splitUrl: any[] = url.split('/')
   return splitUrl[splitUrl.length - 1]
 }
 
+const createMap = (items: any[], keyName = 'name'): Map<string, any> => {
+  const map = new Map()
+  items.forEach(item => map.set(item[keyName], item))
+  return map
+}
+
+const minMax = (arr: number[]) => [_.min(arr), _.max(arr)]
+
 export const run = async (onProgress?: Function) =>
-  new Promise(resolve => {
+  new Promise(async resolve => {
+    let streamEnded = false
+
     logger.info(`${TASK_NAME}: inserting records into database...`)
+
     const stream: any = redis.hscanStream(CACHE_JOBS_MAP_KEY)
+    const snapshot = await db
+      .table(SCHEMA.snapshots.__tableName)
+      .first(SCHEMA.snapshots.version)
+      .orderBy(SCHEMA.snapshots.version, 'desc')
 
     stream.on('data', async (resultKeys: string[]) => {
       // Pause the stream from scanning more keys until we've migrated the current keys.
@@ -39,41 +60,89 @@ export const run = async (onProgress?: Function) =>
         .map(([url, jobInfo]) => jobInfo && { url, ...JSON.parse(jobInfo) })
         .filter(Boolean)
 
-      // Cache tags instead of querying the db on each item
-      const tags = new Map()
-      const tagsFromDb = await Tag.query().select()
+      // Populate from database
+      const [dbTags, dbCities, dbCountries] = await Promise.all(
+        [Tag, City, Country].map((model: any) => model.query().select())
+      )
 
-      tagsFromDb.forEach(({ id, name }) => tags.set(name, { id, name }))
-
-      for (const tag of _.flatten(jobs.map(job => job.tags))) {
-        if (!tags.get(tag)) {
-          const newTag = await Tag.query().insert({ name: tag })
-          tags.set(tag, { id: newTag.id, name: tag })
-        }
+      const maps = {
+        tags: createMap(dbTags),
+        cities: createMap(dbCities),
+        countries: createMap(dbCountries)
       }
 
-      const graphs: DeepPartialGraphModel<Job>[] = []
-
       for (const job of jobs) {
+        const jobSlug = getSlug(job.url)
+        const companySlug = getSlug(job.company.url)
+
+        const _job = await first(Job, { slug: jobSlug })
+
+        const common: { id; slug; source: Partial<Source> } = {
+          id: _job ? _job.id : undefined,
+          slug: jobSlug,
+          source: { id: SOURCE_ID }
+        }
+
+        if (job.isClosed) {
+          await Job.query().upsertGraph({ ...common, isClosed: true })
+          continue
+        }
+
+        const _company = await first(Company, { slug: companySlug })
+        const _category = await first(Category, { slug: job.category.slug })
+
+        const { city, country: countryName, tags } = job
+
+        // Insert Tags
+        for (const tag of tags) {
+          if (!maps.tags.get(tag)) {
+            const [id] = await db
+              .table(SCHEMA.tags.__tableName)
+              .insert({
+                [SCHEMA.tags.name]: tag
+              })
+              .returning('id')
+            maps.tags.set(tag, { id, name: tag })
+          }
+        }
+
+        // Insert Countries
+        if (countryName && !maps.countries.get(countryName)) {
+          const name = countryName
+          const [id] = await db
+            .table(SCHEMA.countries.__tableName)
+            .insert({ [SCHEMA.countries.name]: name })
+            .returning('id')
+          maps.countries.set(name, { id, name })
+        }
+
+        // Insert Cities
+        if (city && !maps.cities.get(city)) {
+          const { id: countryId } = maps.countries.get(countryName)
+          const [id] = await db
+            .table(SCHEMA.cities.__tableName)
+            .insert({
+              [SCHEMA.cities.name]: city,
+              [SCHEMA.cities.countryId]: countryId
+            })
+            .returning('id')
+          maps.cities.set(city, { id, name: city })
+        }
+
         const company = await redis.hgetJson(
           CACHE_COMPANIES_KEY,
           job.company.url
         )
-        const salary = await redis.hgetJson(CACHE_SALARIES_MAP_KEY, job.url)
 
-        const [salaryFrom, salaryTo]: any = salary || []
+        const _salary = (await redisClients.db1.smembers(job.url)).map(Number)
 
-        const jobSlug = getSlug(job.url)
-        const companySlug = getSlug(job.company.url)
+        // If the salary is available, we grab it from the job description
+        // If the salary is fixed (it isn't range), the array will be filled
+        // with its value.
+        // For every other job, it will get the salary from redis
 
-        // TODO: refactor and cache the same way as tags
-        const _country = await first(Country, { name: job.country })
-        const _city =
-          _country &&
-          (await first(City, { name: job.city, countryId: _country.id }))
-        const _company = await first(Company, { slug: companySlug })
-        const _category = await first(Category, { slug: job.category.slug })
-        const _job = await first(Job, { slug: jobSlug })
+        const salary = job.salary || (_salary.length && minMax(_salary)) || []
+        const [salaryFrom, salaryTo] = [salary[0], salary[1] || salary[0]]
 
         const salariesHistory = _job ? _job.salariesHistory || [] : []
 
@@ -81,9 +150,10 @@ export const run = async (onProgress?: Function) =>
         const salaryDidChange =
           _job &&
           (+_job.salaryFrom !== +salaryFrom || +_job.salaryTo !== +salaryTo)
+        const salaryFromMap = !Boolean(job.salary)
 
         const graph: DeepPartialGraphModel<Job> = {
-          id: _job ? _job.id : undefined,
+          ...common,
           category: {
             id: _category ? _category.id : undefined,
             ...job.category
@@ -93,39 +163,39 @@ export const run = async (onProgress?: Function) =>
           level: job.level,
           title: job.title,
           type: job.type,
-          version: 1,
+          version: snapshot ? snapshot.version : 1,
           slug: jobSlug,
           meta: JSON.stringify({
             originalUrl: job.url,
             trending: job.trending
           }),
-          city: job.city
+          city: maps.cities.get(job.city)
             ? {
-                id: _city ? _city.id : undefined,
-                name: job.city,
-                country: {
-                  id: _country ? _country.id : undefined,
-                  name: job.country
-                }
+                ...maps.cities.get(job.city),
+                country: maps.countries.get(job.country)
               }
             : undefined,
           salaryFrom,
-          salaryTo,
+
+          // We need to substract the difference, since getonbrd will return
+          // jobs that are in the 0-${SALARY_STEP} USD range.
+          salaryTo:
+            salaryFromMap && salaryTo ? salaryTo - SALARY_STEP : salaryTo,
+          salaryFromMap,
           salariesHistory: JSON.stringify(
-            job.salary && salaryDidChange
+            salary && salaryDidChange
               ? [...salariesHistory, currSalary]
               : !_job
               ? [currSalary]
               : salariesHistory
           ),
-          tags: job.tags.map(tag => tags.get(tag)),
+          tags: job.tags.map(tag => maps.tags.get(tag)),
           company: {
             id: _company ? _company.id : undefined,
             description: company.about,
             slug: companySlug,
             shortDescription: company.subtitle,
             name: job.company.name,
-            logo: null,
             meta: JSON.stringify({
               originalUrl: job.company.url,
               originalLogo: company.logo,
@@ -135,21 +205,23 @@ export const run = async (onProgress?: Function) =>
           }
         }
 
-        graphs.push(graph)
+        await Job.query().upsertGraph(graph, {
+          relate: true,
+          unrelate: true
+        })
+
+        onProgress && onProgress(graph)
       }
 
-      const insertedItems = await Job.query().upsertGraph(graphs, {
-        relate: true,
-        unrelate: true
-      })
-
-      onProgress && onProgress(insertedItems)
+      if (streamEnded) {
+        logger.info(`${TASK_NAME}: done!`)
+        resolve(TASK_NAME)
+      }
 
       stream.resume()
     })
 
-    stream.on('end', function() {
-      logger.info(`${TASK_NAME}: done!`)
-      resolve(TASK_NAME)
+    stream.on('end', () => {
+      streamEnded = true
     })
   })

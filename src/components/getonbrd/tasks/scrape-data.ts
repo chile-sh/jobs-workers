@@ -5,7 +5,6 @@ import {
   sendToQueue,
   waitForQueuesToEnd
 } from '@common/lib/amqplib'
-import { defaultClient as redis } from '@common/lib/redis'
 import { logger } from '@common/lib/logger'
 
 import { makeQueues } from '../queues'
@@ -16,12 +15,15 @@ import {
   QUEUE_GET_SALARIES,
   CACHE_SALARY_RANGE_KEY,
   CACHE_JOBS_QUEUED_KEY,
-  CACHE_SALARIES_MAP_KEY,
   CACHE_COMPANIES_KEY,
   CACHE_JOBS_MAP_KEY,
   SOURCE_NAME,
   CONFIG_MAX_PREFETCH
 } from '../constants'
+
+import { redisClients } from '../helpers'
+
+const { db0: redis } = redisClients
 
 const makeRanges = (from?: number, to?: number, step: number = SALARY_STEP) =>
   _.times((to - from) / step, (num: number) => [
@@ -31,7 +33,7 @@ const makeRanges = (from?: number, to?: number, step: number = SALARY_STEP) =>
 
 const ranges = makeRanges(...SALARY_RANGE, SALARY_STEP)
 
-const TASK_NAME = `${SOURCE_NAME}.scrape-data`
+export const TASK_NAME = `${SOURCE_NAME}.scrape-data`
 
 export const run = async (onStatus?: Function, onEnd?: Function) => {
   const ch = await createChannel(CONFIG_MAX_PREFETCH)
@@ -53,14 +55,10 @@ export const run = async (onStatus?: Function, onEnd?: Function) => {
     redis.setKeyExp(CACHE_JOBS_MAP_KEY, '2 days', true, '1h'),
     redis.setKeyExp(CACHE_SALARY_RANGE_KEY, '4 hours', true, '1h'),
     redis.del(CACHE_JOBS_QUEUED_KEY),
-    redis.del(CACHE_SALARIES_MAP_KEY)
+    redisClients.db1.flushdb()
   ])
 
-  // Get min and max items to exclude their salary
-  // since they appear on the entire range
-  const fullRange = [[0, 0], [20000, 20000], ...ranges]
-
-  fullRange.forEach(range =>
+  ranges.forEach(range =>
     sendToQueue(ch)(QUEUE_GET_SALARIES, { range, offset: 0 })
   )
 
@@ -71,14 +69,16 @@ export const run = async (onStatus?: Function, onEnd?: Function) => {
 
       await Promise.all(allQueues.map(q => ch.deleteQueue(q.name)))
       await redis.del(CACHE_JOBS_QUEUED_KEY)
-      console.log('redis del', CACHE_JOBS_QUEUED_KEY)
-      logger.info(
+
+      logger.debug('redis del', CACHE_JOBS_QUEUED_KEY)
+      logger.debug(
         `${allQueues
           .map(q => q.name)
           .join(', ')} queues, and ${CACHE_JOBS_QUEUED_KEY} keys removed.`
       )
 
       logger.info(`${TASK_NAME}: done!`)
+      onEnd && onEnd()
     }
   })
 }
