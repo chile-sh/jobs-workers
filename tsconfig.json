@@ -9,6 +9,7 @@
     "baseUrl": "./src",
     "esModuleInterop": true,
     "allowJs": true,
+    "typeRoots": ["node_modules/@types"],
     "paths": {
       "@/*": ["./*"],
       "@common/*": ["../node_modules/@chile-sh/jobs-common/build/*"]
