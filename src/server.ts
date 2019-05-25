@@ -1,30 +1,20 @@
-import { CronJob } from 'cron'
-import { Worker } from 'worker_threads'
+import { CronJob, CronCommand } from 'cron'
 import { logger } from '@common/lib/logger'
-import path from 'path'
+
+import * as bots from '@/components/bots'
 
 import config from '@/config'
 import '@common/lib/sentry'
 
-const initCronJob = (bot: any) => {
-  const tz = 'America/Santiago'
-  const cronCb = () => {
-    const worker = new Worker(path.join(__dirname, 'worker.js'), {
-      workerData: {
-        path: './worker.ts'
-      }
-    })
+const TIMEZONE = 'America/Santiago'
 
-    worker.on('message', msg => logger.info(msg))
-    worker.on('error', err => logger.error(`${err.name}: ${err.message}`))
-    worker.on('exit', code => {
-      if (code !== 0) {
-        logger.error(`Worker stopped with exit code ${JSON.stringify(code)}`)
-      }
-    })
-  }
+const initCronJob = (bot: any, callback: CronCommand) =>
+  new CronJob(bot.cron, callback, null, true, TIMEZONE, null, bot.runOnInit)
 
-  return new CronJob(bot.cron, cronCb, null, true, tz, null, bot.runOnInit)
+for (const [name, botConfig] of Object.entries(config.bots)) {
+  initCronJob(botConfig, () =>
+    bots[name].runAllTasks((taskName: string, info: any) => {
+      logger.info(`${taskName}: ${JSON.stringify(info)}`)
+    })
+  )
 }
-
-initCronJob(config.bots.getonbrd)
