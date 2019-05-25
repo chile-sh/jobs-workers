@@ -4,7 +4,7 @@
   "main": "build/server.js",
   "license": "GPL-3.0",
   "scripts": {
-    "ts-node": "node -r tsconfig-paths/register -r ts-node/register -r dotenv/config",
+    "ts-node": "node -r ts-node/register -r tsconfig-paths/register -r dotenv/config",
     "dev": "yarn ts-node --inspect=5858 src/server.ts",
     "build": "rm -rvf build && tsc",
     "serve": "node build/server.js",
@@ -22,6 +22,8 @@
   "devDependencies": {
     "@chile-sh/eslint-config-ts": "^2.2.2",
     "@types/dotenv": "^6.1.1",
+    "@types/got": "^9.4.4",
+    "@types/cron": "^1.7.1",
     "@types/ioredis": "^4.0.10",
     "@types/jest": "^24.0.12",
     "@types/lodash": "^4.14.123",
@@ -41,11 +43,14 @@
     "yalc": "^1.0.0-pre.27"
   },
   "dependencies": {
-    "@chile-sh/getonbrd-scraper": "^3.0.2",
-    "@chile-sh/jobs-common": "^1.2.0",
+    "@chile-sh/getonbrd-scraper": "^3.1.0",
+    "@chile-sh/jobs-common": "^1.4.0",
+    "aws-sdk": "^2.460.0",
     "cron": "^1.7.1",
     "date-fns": "^1.30.1",
     "dotenv": "^7.0.0",
-    "lodash": "^4.17.11"
+    "lodash": "^4.17.11",
+    "objection": "^1.6.9",
+    "p-map": "^2.1.0"
   }
 }
