@@ -23,7 +23,7 @@ for (const [name, botConfig] of Object.entries(config.bots)) {
             logger.info(`${prefix}: ${JSON.stringify(info)}`)
         }
       },
-      (taskName: string) => logger.info(`${taskName}: done!`)
+      (taskName: string) => logger.info(`${name}.${taskName}: done!`)
     )
   )
 }
