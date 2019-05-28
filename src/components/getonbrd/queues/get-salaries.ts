@@ -1,5 +1,4 @@
 import GetOnBrd from '@chile-sh/getonbrd-scraper'
-import _ from 'lodash'
 
 import { sendToQueue } from '@common/lib/amqplib'
 
