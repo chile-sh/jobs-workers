@@ -4,6 +4,7 @@ const { GETONBRD_SESSION } = process.env
 
 export default {
   ...commonConfig,
+  tz: 'America/Santiago',
 
   bots: {
     getonbrd: {
