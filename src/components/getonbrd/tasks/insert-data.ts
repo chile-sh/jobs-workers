@@ -18,14 +18,16 @@ import {
   CACHE_JOBS_MAP_KEY,
   SOURCE_NAME,
   SOURCE_ID,
-  SALARY_STEP
+  SALARY_STEP,
+  CACHE_SALARY_MAP_KEY,
+  CACHE_SNAPSHOT_KEY
 } from '../constants'
 
 import { redisClients } from '../helpers'
 
 const { db0: redis } = redisClients
 
-export const TASK_NAME = `${SOURCE_NAME}.insert-data`
+export const TASK_NAME = 'insert-data'
 
 const getSlug = (url: string) => {
   const splitUrl: any[] = url.split('/')
@@ -44,13 +46,12 @@ export const run = async (onProgress?: Function) =>
   new Promise(async resolve => {
     let streamEnded = false
 
-    logger.info(`${TASK_NAME}: inserting records into database...`)
+    logger.debug(
+      `${SOURCE_NAME}.${TASK_NAME}: inserting records into database...`
+    )
 
+    const snapshot = await redis.getJson(CACHE_SNAPSHOT_KEY)
     const stream: any = redis.hscanStream(CACHE_JOBS_MAP_KEY)
-    const snapshot = await db
-      .table(SCHEMA.snapshots.__tableName)
-      .first(SCHEMA.snapshots.version)
-      .orderBy(SCHEMA.snapshots.version, 'desc')
 
     stream.on('data', async (resultKeys: string[]) => {
       // Pause the stream from scanning more keys until we've migrated the current keys.
@@ -134,7 +135,9 @@ export const run = async (onProgress?: Function) =>
           job.company.url
         )
 
-        const _salary = (await redisClients.db1.smembers(job.url)).map(Number)
+        const _salary = (await redisClients.db1.smembers(
+          `${CACHE_SALARY_MAP_KEY}:${job.url}`
+        )).map(Number)
 
         // If the salary is available, we grab it from the job description
         // If the salary is fixed (it isn't range), the array will be filled
@@ -214,8 +217,7 @@ export const run = async (onProgress?: Function) =>
       }
 
       if (streamEnded) {
-        logger.info(`${TASK_NAME}: done!`)
-        resolve(TASK_NAME)
+        return resolve(TASK_NAME)
       }
 
       stream.resume()

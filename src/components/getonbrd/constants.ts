@@ -13,6 +13,8 @@ export const CACHE_COMPANIES_KEY = `${SOURCE_NAME}.companies`
 export const CACHE_JOBS_MAP_KEY = `${SOURCE_NAME}.jobs`
 export const CACHE_JOBS_QUEUED_KEY = `${SOURCE_NAME}.jobs.queued`
 export const CACHE_SALARY_RANGE_KEY = `${SOURCE_NAME}.salaryRanges`
+export const CACHE_SALARY_MAP_KEY = `${SOURCE_NAME}.salaryMap`
+export const CACHE_SNAPSHOT_KEY = `${SOURCE_NAME}.snapshot`
 
 export const QUEUE_GET_JOBS = `${SOURCE_NAME}.getJobs`
 export const QUEUE_GET_SALARIES = `${SOURCE_NAME}.getSalaries`

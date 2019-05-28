@@ -12,7 +12,7 @@ import { logger } from '@common/lib/logger'
 import { SOURCE_NAME } from '../constants'
 import config from '@/config'
 
-export const TASK_NAME = `${SOURCE_NAME}.get-assets`
+export const TASK_NAME = 'get-assets'
 
 export const run = async (onProgress?: Function) => {
   const withoutLogo = await db
@@ -49,14 +49,14 @@ export const run = async (onProgress?: Function) => {
 
       await Company.query().upsertGraph({ id: company.id, logo: assetId })
 
-      logger.info(
-        `${TASK_NAME}: asset ${path} uploaded to bucket ${config.aws.s3.bucket}`
+      logger.debug(
+        `${SOURCE_NAME}.${TASK_NAME}: asset ${path} uploaded to bucket ${
+          config.aws.s3.bucket
+        }`
       )
 
       onProgress && onProgress({ uploaded, path })
     },
     { concurrency: 10 }
   )
-
-  logger.info(`${TASK_NAME}: done!`)
 }

@@ -10,7 +10,8 @@ import {
   QUEUE_GET_JOBS,
   CACHE_JOBS_QUEUED_KEY,
   CACHE_SESSION_KEY,
-  CACHE_SALARY_RANGE_KEY
+  CACHE_SALARY_RANGE_KEY,
+  CACHE_SALARY_MAP_KEY
 } from '../constants'
 
 import { redisClients } from '../helpers'
@@ -51,7 +52,8 @@ export default async (msg: any, ch: any) => {
       if (!queued) await sendToQueue(ch)(QUEUE_GET_JOBS, url)
 
       await redis.sadd(CACHE_JOBS_QUEUED_KEY, urls)
-      await redisClients.db1.sadd(url, range)
+
+      await redisClients.db1.sadd(`${CACHE_SALARY_MAP_KEY}:${url}`, range)
     })
   )
 

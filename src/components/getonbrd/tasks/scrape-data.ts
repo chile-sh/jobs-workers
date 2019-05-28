@@ -33,9 +33,9 @@ const makeRanges = (from?: number, to?: number, step: number = SALARY_STEP) =>
 
 const ranges = makeRanges(...SALARY_RANGE, SALARY_STEP)
 
-export const TASK_NAME = `${SOURCE_NAME}.scrape-data`
+export const TASK_NAME = 'scrape-data'
 
-export const run = async (onStatus?: Function, onEnd?: Function) => {
+export const run = async (onProgress?: Function) => {
   const ch = await createChannel(CONFIG_MAX_PREFETCH)
   const queues = await makeQueues(ch)
 
@@ -62,23 +62,17 @@ export const run = async (onStatus?: Function, onEnd?: Function) => {
     sendToQueue(ch)(QUEUE_GET_SALARIES, { range, offset: 0 })
   )
 
-  return waitForQueuesToEnd(ch, allQueues, {
-    onStatus,
-    onEnd: async () => {
-      logger.info(`${SOURCE_NAME}: queues finished! Cleaning up...`)
+  await waitForQueuesToEnd(ch, allQueues, { onStatus: onProgress })
 
-      await Promise.all(allQueues.map(q => ch.deleteQueue(q.name)))
-      await redis.del(CACHE_JOBS_QUEUED_KEY)
+  logger.debug(`${SOURCE_NAME}.${TASK_NAME}: queues finished! Cleaning up...`)
 
-      logger.debug('redis del', CACHE_JOBS_QUEUED_KEY)
-      logger.debug(
-        `${allQueues
-          .map(q => q.name)
-          .join(', ')} queues, and ${CACHE_JOBS_QUEUED_KEY} keys removed.`
-      )
+  await Promise.all(allQueues.map(q => ch.deleteQueue(q.name)))
+  await redis.del(CACHE_JOBS_QUEUED_KEY)
 
-      logger.info(`${TASK_NAME}: done!`)
-      onEnd && onEnd()
-    }
-  })
+  logger.debug('redis del', CACHE_JOBS_QUEUED_KEY)
+  logger.debug(
+    `${allQueues
+      .map(q => q.name)
+      .join(', ')} queues, and ${CACHE_JOBS_QUEUED_KEY} keys removed.`
+  )
 }
