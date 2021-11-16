@@ -45,7 +45,7 @@
   "dependencies": {
     "@chile-sh/getonbrd-scraper": "^3.1.0",
     "@chile-sh/jobs-common": "^1.4.0",
-    "aws-sdk": "^2.460.0",
+    "aws-sdk": "^2.814.0",
     "cron": "^1.7.1",
     "date-fns": "^1.30.1",
     "dotenv": "^7.0.0",
